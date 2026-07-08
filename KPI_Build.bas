@@ -16,13 +16,13 @@ Public Sub BuildKPITable()
     If wsTgt Is Nothing Then MsgBox "Target sheet '" & TGT_SHEET & "' not found.", vbExclamation: GoTo CleanExit
 
     Dim ids As Collection
-    Set ids = CollectBlackRedIds(wsSrc)
-    If ids.Count = 0 Then MsgBox "No BLACK or RED stopes found in source.", vbInformation: GoTo CleanExit
+    Set ids = CollectAllIds(wsSrc)
+    If ids.Count = 0 Then MsgBox "No stopes found in source.", vbInformation: GoTo CleanExit
 
     Dim lo As ListObject
     Set lo = GetOrCreateTable(wsTgt, ids)   ' creates seeded with all ids if new
 
-    ' Append any BLACK/RED ids not already present
+    ' Append any ids not already present
     Dim existing As Object: Set existing = CreateObject("Scripting.Dictionary")
     If Not lo.DataBodyRange Is Nothing Then
         Dim idBody As Variant, r As Long
@@ -47,8 +47,10 @@ Public Sub BuildKPITable()
 
     ApplyLookupFormulas lo
     Application.Calculate
+    FilterOutGreenYellow lo   ' hide GREEN/YELLOW; BLACK/RED (and blanks) stay visible
     MsgBox "KPI table ready. " & added & " new stope(s) added. Total rows: " & _
-           IIf(lo.DataBodyRange Is Nothing, 0, lo.ListRows.Count) & ".", vbInformation
+           IIf(lo.DataBodyRange Is Nothing, 0, lo.ListRows.Count) & _
+           " (GREEN/YELLOW hidden by filter).", vbInformation
 
 CleanExit:
     Application.ScreenUpdating = prevSU: Application.EnableEvents = prevEv
