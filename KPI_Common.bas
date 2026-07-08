@@ -55,16 +55,23 @@ Public Function CollectAllIds(wsSrc As Worksheet) As Collection
     Dim lastRow As Long: lastRow = wsSrc.Cells(wsSrc.Rows.Count, COL_ID).End(xlUp).Row
     If lastRow < 2 Then Set CollectAllIds = c: Exit Function
 
-    Dim idv As Variant, r As Long, id As String
+    Dim idv As Variant, zv As Variant, r As Long, id As String
     idv = ReadColumn(wsSrc, COL_ID, 2, lastRow)
+    zv = ReadColumn(wsSrc, COL_ZONE, 2, lastRow)
     For r = 1 To UBound(idv, 1)
         id = CleanStr(idv(r, 1))
-        If Len(id) > 0 And Not seen.Exists(id) Then
+        ' A real stope has a recognised zone colour; header/label rows do not.
+        If Len(id) > 0 And IsStopeZone(CStr(zv(r, 1))) And Not seen.Exists(id) Then
             seen(id) = True
             c.Add id
         End If
     Next r
     Set CollectAllIds = c
+End Function
+
+Public Function IsStopeZone(zone As String) As Boolean
+    Dim z As String: z = UCase(Trim(zone))
+    IsStopeZone = (z = "BLACK" Or z = "RED" Or z = "GREEN" Or z = "YELLOW")
 End Function
 
 Public Function IsSkippableZone(zone As String) As Boolean
