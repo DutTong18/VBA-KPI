@@ -1,19 +1,5 @@
 Option Explicit
-
-' ================== CONFIG ==================
-Private Const SRC_SHEET     As String = "Stope Cadence"
-Private Const TGT_SHEET     As String = "SchedulerData"
-Private Const TBL_NAME      As String = "KPI"
-Private Const STATE_SHEET   As String = "_StageStateCache"
-Private Const SUMMARY_ANCHOR As String = "A1"
-
-' Source column numbers (1 based)
-Private Const COL_ID       As Long = 3    ' C
-Private Const COL_COMMENTS As Long = 24   ' X
-
-' Thresholds for yes
-Private Const STEPS_RED   As Long = 1
-Private Const STEPS_BLACK As Long = 2
+' Config constants and SheetOrNothing/CleanStr/ReadColumn live in KPI_Common.
 
 ' ================== MACRO: DAILY STATUS CHECK ==================
 Public Sub RunStatusCheck()
@@ -66,73 +52,47 @@ Public Sub RunStatusCheck()
         End If
     Next i
 
-    ' ---- Evaluate ----
+    ' ---- Evaluate each stope ----
     Dim results() As String: ReDim results(1 To n)
     Dim stateArr() As Variant: ReDim stateArr(1 To n, 1 To 3)
-    Dim userN As Object: Set userN = CreateObject("Scripting.Dictionary")
+    Dim userStats As Object: Set userStats = CreateObject("Scripting.Dictionary")
     Dim passCount As Long, nCount As Long, cBlack As Long, cRed As Long
 
     For i = 1 To n
         Dim id As String, usr As String, stg As String, sub_ As String, zone As String
-        id = Trim(CStr(kpi(i, 1)))
-        usr = Trim(CStr(kpi(i, 2))): If Len(usr) = 0 Then usr = "(unassigned)"
-        stg = Trim(CStr(kpi(i, 3)))
-        sub_ = Trim(CStr(kpi(i, 4)))
-        zone = UCase(Trim(CStr(kpi(i, 5))))
-        If zone = "BLACK" Then cBlack = cBlack + 1
-        If zone = "RED" Then cRed = cRed + 1
+        id = CleanStr(kpi(i, 1))
+        usr = CleanStr(kpi(i, 2)): If Len(usr) = 0 Then usr = "(unassigned)"
+        stg = CleanStr(kpi(i, 3)): sub_ = CleanStr(kpi(i, 4))
+        zone = UCase(CleanStr(kpi(i, 5)))
+        If zone = "BLACK" Then cBlack = cBlack + 1 ElseIf zone = "RED" Then cRed = cRed + 1
 
         stateArr(i, 1) = id: stateArr(i, 2) = stg: stateArr(i, 3) = sub_
 
-        Dim currKey As String, currI As Long
-        currKey = StageKey(stg, sub_)
-        currI = IIf(stageIdx.Exists(currKey), stageIdx(currKey), -1)
-
-        If Not savedState.Exists(id) Then
-            results(i) = "new"
-        Else
-            Dim prev As Variant: prev = savedState(id)
-            Dim prevKey As String, prevI As Long
-            prevKey = StageKey(prev(0), prev(1))
-            prevI = IIf(stageIdx.Exists(prevKey), stageIdx(prevKey), -1)
-            If currI = -1 Or prevI = -1 Then
-                results(i) = "?"
-            Else
-                Dim thr As Long: thr = IIf(zone = "RED", STEPS_RED, STEPS_BLACK)
-                If (currI - prevI) >= thr Then
-                    results(i) = "Y": passCount = passCount + 1
-                Else
-                    results(i) = "N": nCount = nCount + 1
-                    userN(usr) = IIf(userN.Exists(usr), userN(usr), 0) + 1
-                End If
-            End If
-        End If
+        results(i) = GradeRow(savedState, stageIdx, id, stg, sub_, zone)
+        Select Case results(i)
+            Case "Y": passCount = passCount + 1: BumpUser userStats, usr, 0
+            Case "N": nCount = nCount + 1: BumpUser userStats, usr, 1
+        End Select
     Next i
 
-    ' ---- Append dated status column ----
-    Dim dc As ListColumn: Set dc = lo.ListColumns.Add
-    dc.Name = UniqueColName(lo, baseHeader)
+    ' ---- Append dated status column (Y/N/new/?) ----
     Dim outArr() As Variant: ReDim outArr(1 To n, 1 To 1)
     For i = 1 To n: outArr(i, 1) = results(i): Next i
-    dc.DataBodyRange.Value = outArr
-    For i = 1 To n
-        FormatStatusCell dc.DataBodyRange.Cells(i, 1), results(i)
-    Next i
+    Dim dc As ListColumn: Set dc = AppendColumn(lo, baseHeader, outArr)
+    For i = 1 To n: FormatStatusCell dc.DataBodyRange.Cells(i, 1), results(i): Next i
 
-    ' ---- Append dated comments snapshot (from Stope Cadence col X) ----
+    ' ---- Append dated comments snapshot (Stope Cadence col X) ----
     Dim cmtMap As Object: Set cmtMap = ReadCommentsMap(SheetOrNothing(SRC_SHEET))
-    Dim cc As ListColumn: Set cc = lo.ListColumns.Add
-    cc.Name = UniqueColName(lo, baseHeader)
     Dim cArr() As Variant: ReDim cArr(1 To n, 1 To 1)
     For i = 1 To n
-        Dim rid As String: rid = Trim(CStr(kpi(i, 1)))
-        cArr(i, 1) = IIf(cmtMap.Exists(rid), cmtMap(rid), "")
+        Dim rid As String: rid = CleanStr(kpi(i, 1))
+        If cmtMap.Exists(rid) Then cArr(i, 1) = cmtMap(rid) Else cArr(i, 1) = ""
     Next i
-    cc.DataBodyRange.Value = cArr
+    AppendColumn lo, baseHeader, cArr
 
     ' ---- Summary + user breakdown + persist ----
     WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n, cBlack, cRed, Now
-    WriteUserBreakdown wsTgt, SUMMARY_ANCHOR, userN, nCount, lo.Range.Row
+    WriteUserBreakdown wsTgt, SUMMARY_ANCHOR, userStats, passCount, nCount, lo.Range.Row
     WriteSavedState stateWs, stateArr, n
     If orderChanged Then WriteStageOrder stateWs, order
 
@@ -148,20 +108,27 @@ CleanFail:
     Resume CleanExit
 End Sub
 
-' ================== HELPERS ==================
-Private Function SheetOrNothing(nm As String) As Worksheet
-    On Error Resume Next
-    Set SheetOrNothing = ThisWorkbook.Worksheets(nm)
-    On Error GoTo 0
+' ================== FUNCTIONS ==================
+Private Function GradeRow(savedState As Object, stageIdx As Object, _
+                          id As String, stg As String, sub_ As String, zone As String) As String
+    If Not savedState.Exists(id) Then GradeRow = "new": Exit Function
+    Dim prev As Variant: prev = savedState(id)
+    Dim currI As Long: currI = StagePos(stageIdx, StageKey(stg, sub_))
+    Dim prevI As Long: prevI = StagePos(stageIdx, StageKey(prev(0), prev(1)))
+    If currI = -1 Or prevI = -1 Then GradeRow = "?": Exit Function
+    Dim thr As Long: thr = IIf(zone = "RED", STEPS_RED, STEPS_BLACK)
+    GradeRow = IIf((currI - prevI) >= thr, "Y", "N")
 End Function
 
-Private Function ReadColumn(ws As Worksheet, col As Long, r1 As Long, r2 As Long) As Variant
-    Dim v As Variant
-    v = ws.Range(ws.Cells(r1, col), ws.Cells(r2, col)).Value
-    If Not IsArray(v) Then
-        Dim a(1 To 1, 1 To 1) As Variant: a(1, 1) = v: v = a
-    End If
-    ReadColumn = v
+Private Function StagePos(stageIdx As Object, key As String) As Long
+    If stageIdx.Exists(key) Then StagePos = stageIdx(key) Else StagePos = -1
+End Function
+
+Private Function AppendColumn(lo As ListObject, headerName As String, values As Variant) As ListColumn
+    Dim col As ListColumn: Set col = lo.ListColumns.Add
+    col.Name = UniqueColName(lo, headerName)
+    col.DataBodyRange.Value = values
+    Set AppendColumn = col
 End Function
 
 Private Function TodayColumnExists(lo As ListObject, baseHeader As String) As Boolean
@@ -197,7 +164,7 @@ Private Function ReadCommentsMap(wsSrc As Worksheet) As Object
     idv = ReadColumn(wsSrc, COL_ID, 2, lastRow)
     cv = ReadColumn(wsSrc, COL_COMMENTS, 2, lastRow)
     For r = 1 To UBound(idv, 1)
-        id = Trim(CStr(idv(r, 1)))
+        id = CleanStr(idv(r, 1))
         If Len(id) > 0 Then
             If Not d.Exists(id) Then d(id) = CStr(cv(r, 1))   ' first occurrence, mirrors MATCH
         End If
@@ -216,7 +183,7 @@ Private Sub FormatStatusCell(cell As Range, v As String)
 End Sub
 
 Private Function StageKey(ds As Variant, sp As Variant) As String
-    StageKey = Trim(CStr(ds)) & "::" & Trim(CStr(sp))
+    StageKey = CleanStr(ds) & "::" & CleanStr(sp)
 End Function
 
 ' ---- Cache sheet ----
@@ -237,9 +204,9 @@ Private Function ReadSavedState(ws As Worksheet) As Object
     Dim last As Long: last = ws.Cells(ws.Rows.Count, "A").End(xlUp).Row
     Dim i As Long, id As String
     For i = 2 To last
-        id = Trim(CStr(ws.Cells(i, 1).Value))
+        id = CleanStr(ws.Cells(i, 1).Value)
         If Len(id) > 0 And id <> "undefined" Then
-            d(id) = Array(Trim(CStr(ws.Cells(i, 2).Value)), Trim(CStr(ws.Cells(i, 3).Value)))
+            d(id) = Array(CleanStr(ws.Cells(i, 2).Value), CleanStr(ws.Cells(i, 3).Value))
         End If
     Next i
     Set ReadSavedState = d
@@ -255,7 +222,7 @@ Private Function ReadStageOrder(ws As Worksheet) As Collection
     Dim last As Long: last = ws.Cells(ws.Rows.Count, "E").End(xlUp).Row
     Dim i As Long, k As String
     For i = 2 To last
-        k = Trim(CStr(ws.Cells(i, 5).Value))
+        k = CleanStr(ws.Cells(i, 5).Value)
         If Len(k) > 0 Then c.Add k
     Next i
     If c.Count = 0 Then Set c = SeedOrder()
@@ -310,37 +277,48 @@ Private Sub WriteSummaryBlock(ws As Worksheet, anchor As String, total As Long, 
     x.Font.Italic = True: x.Font.Color = RGB(89, 89, 89)
 End Sub
 
-Private Sub WriteUserBreakdown(ws As Worksheet, anchor As String, breakdown As Object, totalN As Long, tableTopRow As Long)
+Private Sub BumpUser(d As Object, user As String, idx As Long)
+    Dim a As Variant
+    If d.Exists(user) Then a = d(user) Else a = Array(0, 0)   ' (0)=Progressions, (1)=Non-Progressions
+    a(idx) = a(idx) + 1
+    d(user) = a
+End Sub
+
+Private Sub WriteUserBreakdown(ws As Worksheet, anchor As String, stats As Object, totalY As Long, totalN As Long, tableTopRow As Long)
     Dim a As Range: Set a = ws.Range(anchor)
     Dim r0 As Long, c0 As Long: r0 = a.Row + 4: c0 = a.Column
+    Dim lastFree As Long: lastFree = tableTopRow - 1   ' never touch the KPI table below
 
-    ' Never clear/write into the KPI table below: stop one row above it.
-    Dim lastFree As Long: lastFree = tableTopRow - 1
     Dim clearRows As Long: clearRows = lastFree - r0 + 1
     If clearRows > 0 Then
-        ws.Cells(r0, c0).Resize(clearRows, 2).ClearContents
-        ws.Cells(r0, c0).Resize(clearRows, 2).Interior.ColorIndex = xlNone
+        With ws.Cells(r0, c0).Resize(clearRows, 3)
+            .ClearContents: .Interior.ColorIndex = xlNone
+        End With
     End If
 
-    Dim t As Range: Set t = ws.Cells(r0, c0)
-    t.Value = "Non-Progressions by User (this run: " & totalN & " total)"
-    t.Font.Bold = True: t.Interior.Color = RGB(255, 199, 206): t.Font.Color = RGB(156, 0, 6)
+    With ws.Cells(r0, c0)
+        .Value = "Progress by User (this run: " & totalY & " Y / " & totalN & " N)"
+        .Font.Bold = True: .Interior.Color = RGB(217, 225, 242)
+    End With
 
-    Dim uh As Range, ch As Range
-    Set uh = ws.Cells(r0 + 1, c0): Set ch = ws.Cells(r0 + 1, c0 + 1)
-    uh.Value = "User": ch.Value = "N Count"
-    uh.Font.Bold = True: uh.Interior.Color = RGB(217, 225, 242): uh.HorizontalAlignment = xlCenter
-    ch.Font.Bold = True: ch.Interior.Color = RGB(217, 225, 242): ch.HorizontalAlignment = xlCenter
+    Dim hdr As Variant: hdr = Array("User", "Progressions", "Non-Progressions")
+    Dim c As Long
+    For c = 0 To 2
+        With ws.Cells(r0 + 1, c0 + c)
+            .Value = hdr(c): .Font.Bold = True
+            .Interior.Color = RGB(217, 225, 242): .HorizontalAlignment = xlCenter
+        End With
+    Next c
 
-    If breakdown.Count = 0 Then
+    If stats.Count = 0 Then
         With ws.Cells(r0 + 2, c0)
             .Value = "(none)": .Font.Italic = True: .Font.Color = RGB(89, 89, 89)
         End With
         Exit Sub
     End If
 
-    Dim keys() As String: keys = SortByCountDesc(breakdown)
-    Dim i As Long, rowAt As Long
+    Dim keys() As String: keys = SortUsersByN(stats)
+    Dim i As Long, rowAt As Long, v As Variant
     For i = 0 To UBound(keys)
         rowAt = r0 + 2 + i
         If rowAt > lastFree Then
@@ -348,31 +326,30 @@ Private Sub WriteUserBreakdown(ws As Worksheet, anchor As String, breakdown As O
             ws.Cells(lastFree, c0).Font.Italic = True
             Exit For
         End If
+        v = stats(keys(i))
         ws.Cells(rowAt, c0).Value = keys(i)
-        ws.Cells(rowAt, c0 + 1).Value = breakdown(keys(i))
-        ws.Cells(rowAt, c0 + 1).HorizontalAlignment = xlCenter
+        ws.Cells(rowAt, c0 + 1).Resize(1, 2).Value = Array(v(0), v(1))
+        ws.Cells(rowAt, c0 + 1).Resize(1, 2).HorizontalAlignment = xlCenter
     Next i
 End Sub
 
-Private Function SortByCountDesc(d As Object) As String()
+Private Function SortUsersByN(d As Object) As String()
     Dim keys() As String, n As Long, i As Long, j As Long, idx As Long, kk As Variant
     n = d.Count: ReDim keys(0 To n - 1)
     idx = 0
     For Each kk In d.Keys: keys(idx) = CStr(kk): idx = idx + 1: Next kk
+    ' Sort by Non-Progressions desc, then Progressions desc
     For i = 0 To n - 2
         For j = 0 To n - 2 - i
-            If Not InOrder(d, keys(j), keys(j + 1)) Then
+            If UserRank(d, keys(j + 1)) > UserRank(d, keys(j)) Then
                 Dim tmp As String: tmp = keys(j): keys(j) = keys(j + 1): keys(j + 1) = tmp
             End If
         Next j
     Next i
-    SortByCountDesc = keys
+    SortUsersByN = keys
 End Function
 
-Private Function InOrder(d As Object, a As String, b As String) As Boolean
-    If d(a) <> d(b) Then
-        InOrder = (d(a) > d(b))
-    Else
-        InOrder = (StrComp(a, b, vbBinaryCompare) <= 0)
-    End If
+Private Function UserRank(d As Object, user As String) As Double
+    Dim v As Variant: v = d(user)
+    UserRank = v(1) * 1000000# + v(0)   ' Non-Progressions dominant, Progressions as tiebreak
 End Function
