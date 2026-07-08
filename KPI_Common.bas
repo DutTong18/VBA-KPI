@@ -1,3 +1,4 @@
+Attribute VB_Name = "KPI_Common"
 Option Explicit
 
 ' ================== SHARED CONFIG ==================
@@ -250,7 +251,12 @@ End Function
 
 Public Sub WriteSavedState(ws As Worksheet, arr As Variant, n As Long)
     ws.Range("A2:C" & ws.Rows.Count).ClearContents
-    If n > 0 Then ws.Range("A2").Resize(n, 3).Value = arr
+    If n > 0 Then
+        With ws.Range("A2").Resize(n, 3)
+            .NumberFormat = "@"   ' keep sub labels like "25%"/"0%" as text (no % coercion)
+            .Value = arr
+        End With
+    End If
 End Sub
 
 Public Function ReadStageOrder(ws As Worksheet) As Collection
@@ -275,14 +281,14 @@ Public Function SeedOrder() As Collection
     Dim c As New Collection, a As Variant, x As Variant
     a = Array( _
         "Re-Sequenced::", "Not_Started::", "Geology_Review::", _
-        "Draft_Design::", "Draft_Design::0%", "Draft_Design::25%", "Draft_Design::50%", "Draft_Design::75%", _
-        "External_Review::", "External_Review::0%", "External_Review::25%", "External_Review::50%", "External_Review::75%", _
+        "Draft_Design::0%", "Draft_Design::25%", "Draft_Design::50%", "Draft_Design::75%", _
+        "External_Review::0%", "External_Review::25%", "External_Review::50%", "External_Review::75%", _
         "Concept::", _
-        "Shape_Review::", "Shape_Review::Wait on Meeting", "Shape_Review::Updates Post ISR", _
-        "Final_Design::", "Final_Design::0%", "Final_Design::25%", "Final_Design::50%", "Final_Design::75%", _
-        "Peer_Review::", "Peer_Review::Wait on Meeting", "Peer_Review::Updates Post PR", _
-        "Direction_Meeting::", "Direction_Meeting::Wait on Meeting", "Direction_Meeting::Updates Post meeting", _
-        "IFR::", "02_Technical::", "03_Operations::", "04_Superintendent::", "05_Manager::", "06_Upload::", "COMPLETE::")
+        "Shape_Review::Wait on Meeting", "Shape_Review::Updates Post ISR", _
+        "Final_Design::0%", "Final_Design::25%", "Final_Design::50%", "Final_Design::75%", _
+        "Peer_Review::Wait on Meeting", "Peer_Review::Updates Post PR", _
+        "Direction_Meeting::Wait on Meeting", "Direction_Meeting::Updates Post meeting", _
+        "IFR::")
     For Each x In a: c.Add CStr(x): Next x
     Set SeedOrder = c
 End Function
