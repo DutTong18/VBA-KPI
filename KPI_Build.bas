@@ -1,25 +1,5 @@
-Attribute VB_Name = "KPI_Build"
 Option Explicit
-
-' ================== CONFIG ==================
-Private Const SRC_SHEET     As String = "Stope Cadence"
-Private Const TGT_SHEET     As String = "SchedulerData"
-Private Const TBL_NAME      As String = "KPI"
-Private Const TABLE_ANCHOR  As String = "A25"
-
-' Source column numbers (1 based)
-Private Const COL_ID    As Long = 3    ' C
-Private Const COL_USER  As Long = 8    ' H
-Private Const COL_STAGE As Long = 22   ' V
-Private Const COL_SUB   As Long = 23   ' W
-Private Const COL_ZONE  As Long = 35   ' AI
-
-' Base header names
-Private Const H_ID    As String = "ID Stope"
-Private Const H_USER  As String = "User"
-Private Const H_STAGE As String = "Design Stage"
-Private Const H_SUB   As String = "Sub Process"
-Private Const H_ZONE  As String = "Zone Status"
+' Config constants and SheetOrNothing/CleanStr/ReadColumn live in KPI_Common.
 
 ' ================== MACRO: BUILD / REFRESH TABLE ==================
 Public Sub BuildKPITable()
@@ -48,11 +28,11 @@ Public Sub BuildKPITable()
         idBody = lo.ListColumns(H_ID).DataBodyRange.Value
         If IsArray(idBody) Then
             For r = 1 To UBound(idBody, 1)
-                Dim v As String: v = Trim(CStr(idBody(r, 1)))
+                Dim v As String: v = CleanStr(idBody(r, 1))
                 If Len(v) > 0 Then existing(v) = True
             Next r
-        ElseIf Len(Trim(CStr(idBody))) > 0 Then
-            existing(Trim(CStr(idBody))) = True
+        ElseIf Len(CleanStr(idBody)) > 0 Then
+            existing(CleanStr(idBody)) = True
         End If
     End If
 
@@ -77,13 +57,7 @@ CleanFail:
     Resume CleanExit
 End Sub
 
-' ================== HELPERS ==================
-Private Function SheetOrNothing(nm As String) As Worksheet
-    On Error Resume Next
-    Set SheetOrNothing = ThisWorkbook.Worksheets(nm)
-    On Error GoTo 0
-End Function
-
+' ================== FUNCTIONS ==================
 Private Function CollectBlackRedIds(wsSrc As Worksheet) As Collection
     Dim c As New Collection
     Dim seen As Object: Set seen = CreateObject("Scripting.Dictionary")
@@ -96,8 +70,8 @@ Private Function CollectBlackRedIds(wsSrc As Worksheet) As Collection
 
     Dim r As Long, id As String, zone As String
     For r = 1 To UBound(idv, 1)
-        id = Trim(CStr(idv(r, 1)))
-        zone = UCase(Trim(CStr(zv(r, 1))))
+        id = CleanStr(idv(r, 1))
+        zone = UCase(CleanStr(zv(r, 1)))
         If Len(id) > 0 Then
             If (zone = "BLACK" Or zone = "RED") And Not seen.Exists(id) Then
                 seen(id) = True
@@ -106,15 +80,6 @@ Private Function CollectBlackRedIds(wsSrc As Worksheet) As Collection
         End If
     Next r
     Set CollectBlackRedIds = c
-End Function
-
-Private Function ReadColumn(ws As Worksheet, col As Long, r1 As Long, r2 As Long) As Variant
-    Dim v As Variant
-    v = ws.Range(ws.Cells(r1, col), ws.Cells(r2, col)).Value
-    If Not IsArray(v) Then
-        Dim a(1 To 1, 1 To 1) As Variant: a(1, 1) = v: v = a
-    End If
-    ReadColumn = v
 End Function
 
 Private Function GetOrCreateTable(wsTgt As Worksheet, ids As Collection) As ListObject
