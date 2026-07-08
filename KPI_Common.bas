@@ -49,29 +49,33 @@ Public Function ReadColumn(ws As Worksheet, col As Long, r1 As Long, r2 As Long)
 End Function
 
 ' ================== BUILD FUNCTIONS ==================
-Public Function CollectBlackRedIds(wsSrc As Worksheet) As Collection
+Public Function CollectAllIds(wsSrc As Worksheet) As Collection
     Dim c As New Collection
     Dim seen As Object: Set seen = CreateObject("Scripting.Dictionary")
     Dim lastRow As Long: lastRow = wsSrc.Cells(wsSrc.Rows.Count, COL_ID).End(xlUp).Row
-    If lastRow < 2 Then Set CollectBlackRedIds = c: Exit Function
+    If lastRow < 2 Then Set CollectAllIds = c: Exit Function
 
-    Dim idv As Variant, zv As Variant
+    Dim idv As Variant, r As Long, id As String
     idv = ReadColumn(wsSrc, COL_ID, 2, lastRow)
-    zv = ReadColumn(wsSrc, COL_ZONE, 2, lastRow)
-
-    Dim r As Long, id As String, zone As String
     For r = 1 To UBound(idv, 1)
         id = CleanStr(idv(r, 1))
-        zone = UCase(CleanStr(zv(r, 1)))
-        If Len(id) > 0 Then
-            If (zone = "BLACK" Or zone = "RED") And Not seen.Exists(id) Then
-                seen(id) = True
-                c.Add id
-            End If
+        If Len(id) > 0 And Not seen.Exists(id) Then
+            seen(id) = True
+            c.Add id
         End If
     Next r
-    Set CollectBlackRedIds = c
+    Set CollectAllIds = c
 End Function
+
+' Hide GREEN / YELLOW rows without removing them (visual filter only).
+Public Sub FilterOutGreenYellow(lo As ListObject)
+    Dim fld As Long: fld = lo.ListColumns(H_ZONE).Index
+    On Error Resume Next
+    If Not lo.AutoFilter Is Nothing Then lo.AutoFilter.ShowAllData
+    On Error GoTo 0
+    lo.Range.AutoFilter Field:=fld, Criteria1:="<>GREEN", _
+                        Operator:=xlAnd, Criteria2:="<>YELLOW"
+End Sub
 
 Public Function GetOrCreateTable(wsTgt As Worksheet, ids As Collection) As ListObject
     Dim lo As ListObject
