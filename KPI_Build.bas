@@ -1,5 +1,6 @@
+Attribute VB_Name = "KPI_Build"
 Option Explicit
-' Config constants and SheetOrNothing/CleanStr/ReadColumn live in KPI_Common.
+' Config constants and all helper functions live in KPI_Common.
 
 ' ================== MACRO: BUILD / REFRESH TABLE ==================
 Public Sub BuildKPITable()
@@ -56,74 +57,3 @@ CleanFail:
     MsgBox "BuildKPITable error: " & Err.Description, vbCritical
     Resume CleanExit
 End Sub
-
-' ================== FUNCTIONS ==================
-Private Function CollectBlackRedIds(wsSrc As Worksheet) As Collection
-    Dim c As New Collection
-    Dim seen As Object: Set seen = CreateObject("Scripting.Dictionary")
-    Dim lastRow As Long: lastRow = wsSrc.Cells(wsSrc.Rows.Count, COL_ID).End(xlUp).Row
-    If lastRow < 2 Then Set CollectBlackRedIds = c: Exit Function
-
-    Dim idv As Variant, zv As Variant
-    idv = ReadColumn(wsSrc, COL_ID, 2, lastRow)
-    zv = ReadColumn(wsSrc, COL_ZONE, 2, lastRow)
-
-    Dim r As Long, id As String, zone As String
-    For r = 1 To UBound(idv, 1)
-        id = CleanStr(idv(r, 1))
-        zone = UCase(CleanStr(zv(r, 1)))
-        If Len(id) > 0 Then
-            If (zone = "BLACK" Or zone = "RED") And Not seen.Exists(id) Then
-                seen(id) = True
-                c.Add id
-            End If
-        End If
-    Next r
-    Set CollectBlackRedIds = c
-End Function
-
-Private Function GetOrCreateTable(wsTgt As Worksheet, ids As Collection) As ListObject
-    Dim lo As ListObject
-    On Error Resume Next
-    Set lo = wsTgt.ListObjects(TBL_NAME)
-    On Error GoTo 0
-    If Not lo Is Nothing Then Set GetOrCreateTable = lo: Exit Function
-
-    Dim rng As Range
-    Set rng = wsTgt.Range(TABLE_ANCHOR).Resize(2, 5)
-    Set lo = wsTgt.ListObjects.Add(xlSrcRange, rng, , xlYes)
-    lo.Name = TBL_NAME
-    lo.HeaderRowRange.Value = Array(H_ID, H_USER, H_STAGE, H_SUB, H_ZONE)
-    lo.ListRows(1).Range.Cells(1, 1).Value = ids(1)
-    Dim k As Long
-    For k = 2 To ids.Count
-        lo.ListRows.Add.Range.Cells(1, 1).Value = ids(k)
-    Next k
-    Set GetOrCreateTable = lo
-End Function
-
-Private Sub ApplyLookupFormulas(lo As ListObject)
-    If lo.DataBodyRange Is Nothing Then Exit Sub
-    SetLookup lo, H_USER, COL_USER
-    SetLookup lo, H_STAGE, COL_STAGE
-    SetLookup lo, H_SUB, COL_SUB
-    SetLookup lo, H_ZONE, COL_ZONE
-End Sub
-
-Private Sub SetLookup(lo As ListObject, kpiHeader As String, srcCol As Long)
-    Dim lc As String, ic As String
-    lc = ColLetter(srcCol): ic = ColLetter(COL_ID)
-    lo.ListColumns(kpiHeader).DataBodyRange.Formula = _
-        "=IFERROR(INDEX('" & SRC_SHEET & "'!" & lc & ":" & lc & _
-        ",MATCH([@[" & H_ID & "]],'" & SRC_SHEET & "'!" & ic & ":" & ic & ",0)),"""")"
-End Sub
-
-Private Function ColLetter(ByVal n As Long) As String
-    Dim s As String, r As Long
-    Do While n > 0
-        r = (n - 1) Mod 26
-        s = Chr(65 + r) & s
-        n = (n - 1) \ 26
-    Loop
-    ColLetter = s
-End Function
