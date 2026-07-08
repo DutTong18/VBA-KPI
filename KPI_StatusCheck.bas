@@ -1,4 +1,3 @@
-Attribute VB_Name = "KPI_StatusCheck"
 Option Explicit
 
 ' ================== CONFIG ==================
@@ -133,7 +132,7 @@ Public Sub RunStatusCheck()
 
     ' ---- Summary + user breakdown + persist ----
     WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n, cBlack, cRed, Now
-    WriteUserBreakdown wsTgt, SUMMARY_ANCHOR, userN, nCount
+    WriteUserBreakdown wsTgt, SUMMARY_ANCHOR, userN, nCount, lo.Range.Row
     WriteSavedState stateWs, stateArr, n
     If orderChanged Then WriteStageOrder stateWs, order
 
@@ -311,11 +310,17 @@ Private Sub WriteSummaryBlock(ws As Worksheet, anchor As String, total As Long, 
     x.Font.Italic = True: x.Font.Color = RGB(89, 89, 89)
 End Sub
 
-Private Sub WriteUserBreakdown(ws As Worksheet, anchor As String, breakdown As Object, totalN As Long)
+Private Sub WriteUserBreakdown(ws As Worksheet, anchor As String, breakdown As Object, totalN As Long, tableTopRow As Long)
     Dim a As Range: Set a = ws.Range(anchor)
     Dim r0 As Long, c0 As Long: r0 = a.Row + 4: c0 = a.Column
-    ws.Cells(r0, c0).Resize(100, 2).ClearContents
-    ws.Cells(r0, c0).Resize(100, 2).Interior.ColorIndex = xlNone
+
+    ' Never clear/write into the KPI table below: stop one row above it.
+    Dim lastFree As Long: lastFree = tableTopRow - 1
+    Dim clearRows As Long: clearRows = lastFree - r0 + 1
+    If clearRows > 0 Then
+        ws.Cells(r0, c0).Resize(clearRows, 2).ClearContents
+        ws.Cells(r0, c0).Resize(clearRows, 2).Interior.ColorIndex = xlNone
+    End If
 
     Dim t As Range: Set t = ws.Cells(r0, c0)
     t.Value = "Non-Progressions by User (this run: " & totalN & " total)"
@@ -335,11 +340,17 @@ Private Sub WriteUserBreakdown(ws As Worksheet, anchor As String, breakdown As O
     End If
 
     Dim keys() As String: keys = SortByCountDesc(breakdown)
-    Dim i As Long
+    Dim i As Long, rowAt As Long
     For i = 0 To UBound(keys)
-        ws.Cells(r0 + 2 + i, c0).Value = keys(i)
-        ws.Cells(r0 + 2 + i, c0 + 1).Value = breakdown(keys(i))
-        ws.Cells(r0 + 2 + i, c0 + 1).HorizontalAlignment = xlCenter
+        rowAt = r0 + 2 + i
+        If rowAt > lastFree Then
+            ws.Cells(lastFree, c0).Value = "... (+" & (UBound(keys) - i + 1) & " more users)"
+            ws.Cells(lastFree, c0).Font.Italic = True
+            Exit For
+        End If
+        ws.Cells(rowAt, c0).Value = keys(i)
+        ws.Cells(rowAt, c0 + 1).Value = breakdown(keys(i))
+        ws.Cells(rowAt, c0 + 1).HorizontalAlignment = xlCenter
     Next i
 End Sub
 
