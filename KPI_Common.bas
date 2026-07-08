@@ -1,4 +1,3 @@
-Attribute VB_Name = "KPI_Common"
 Option Explicit
 
 ' ================== SHARED CONFIG ==================
