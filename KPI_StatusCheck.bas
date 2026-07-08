@@ -64,7 +64,11 @@ Public Sub RunStatusCheck()
         usr = CleanStr(kpi(i, 2)): If Len(usr) = 0 Then usr = "(unassigned)"
         stg = CleanStr(kpi(i, 3)): sub_ = CleanStr(kpi(i, 4))
         zone = UCase(CleanStr(kpi(i, 5)))
-        If zone = "BLACK" Then cBlack = cBlack + 1 ElseIf zone = "RED" Then cRed = cRed + 1
+        If zone = "BLACK" Then
+            cBlack = cBlack + 1
+        ElseIf zone = "RED" Then
+            cRed = cRed + 1
+        End If
 
         stateArr(i, 1) = id: stateArr(i, 2) = stg: stateArr(i, 3) = sub_
 
