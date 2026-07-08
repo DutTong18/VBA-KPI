@@ -111,6 +111,11 @@ End Function
 
 Public Sub ApplyLookupFormulas(lo As ListObject)
     If lo.DataBodyRange Is Nothing Then Exit Sub
+    ' Show all rows first: assigning .Formula to a filtered table skips hidden rows,
+    ' so a rebuild would leave stale formulas on GREEN/YELLOW rows still hidden.
+    On Error Resume Next
+    If Not lo.AutoFilter Is Nothing Then lo.AutoFilter.ShowAllData
+    On Error GoTo 0
     SetLookup lo, H_USER, COL_USER
     SetLookup lo, H_STAGE, COL_STAGE
     SetLookup lo, H_SUB, COL_SUB
@@ -118,11 +123,15 @@ Public Sub ApplyLookupFormulas(lo As ListObject)
 End Sub
 
 Public Sub SetLookup(lo As ListObject, kpiHeader As String, srcCol As Long)
-    Dim lc As String, ic As String
+    Dim lc As String, ic As String, idx As String, q As String
+    q = Chr(34)
     lc = ColLetter(srcCol): ic = ColLetter(COL_ID)
+    idx = "INDEX('" & SRC_SHEET & "'!" & lc & ":" & lc & _
+          ",MATCH([@[" & H_ID & "]],'" & SRC_SHEET & "'!" & ic & ":" & ic & ",0))"
+    ' INDEX returns 0 for a blank source cell; the IF maps blank -> "" so stage
+    ' keys stay like "IFR::" (matching the seed order) instead of "IFR::0".
     lo.ListColumns(kpiHeader).DataBodyRange.Formula = _
-        "=IFERROR(INDEX('" & SRC_SHEET & "'!" & lc & ":" & lc & _
-        ",MATCH([@[" & H_ID & "]],'" & SRC_SHEET & "'!" & ic & ":" & ic & ",0)),"""")"
+        "=IFERROR(IF(" & idx & "=" & q & q & "," & q & q & "," & idx & ")," & q & q & ")"
 End Sub
 
 Public Function ColLetter(ByVal n As Long) As String
@@ -153,6 +162,7 @@ End Function
 
 Public Function AppendColumn(lo As ListObject, headerName As String, values As Variant) As ListColumn
     Dim col As ListColumn: Set col = lo.ListColumns.Add
+    col.Range.Cells(1, 1).NumberFormat = "@"   ' keep date header as literal text (no coercion)
     col.Name = UniqueColName(lo, headerName)
     col.DataBodyRange.Value = values
     Set AppendColumn = col
@@ -337,8 +347,17 @@ Public Sub WriteUserBreakdown(ws As Worksheet, anchor As String, stats As Object
         End With
     Next c
 
+    ' TOTAL row (always shown, directly under the column headers)
+    With ws.Cells(r0 + 2, c0)
+        .Value = "TOTAL": .Font.Bold = True: .Interior.Color = RGB(235, 240, 250)
+    End With
+    With ws.Cells(r0 + 2, c0 + 1).Resize(1, 2)
+        .Value = Array(totalY, totalN)
+        .Font.Bold = True: .Interior.Color = RGB(235, 240, 250): .HorizontalAlignment = xlCenter
+    End With
+
     If stats.Count = 0 Then
-        With ws.Cells(r0 + 2, c0)
+        With ws.Cells(r0 + 3, c0)
             .Value = "(none)": .Font.Italic = True: .Font.Color = RGB(89, 89, 89)
         End With
         Exit Sub
@@ -347,7 +366,7 @@ Public Sub WriteUserBreakdown(ws As Worksheet, anchor As String, stats As Object
     Dim keys() As String: keys = SortUsersByN(stats)
     Dim i As Long, rowAt As Long, v As Variant
     For i = 0 To UBound(keys)
-        rowAt = r0 + 2 + i
+        rowAt = r0 + 3 + i
         If rowAt > lastFree Then
             ws.Cells(lastFree, c0).Value = "... (+" & (UBound(keys) - i + 1) & " more users)"
             ws.Cells(lastFree, c0).Font.Italic = True
