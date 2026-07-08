@@ -67,6 +67,11 @@ Public Function CollectAllIds(wsSrc As Worksheet) As Collection
     Set CollectAllIds = c
 End Function
 
+Public Function IsSkippableZone(zone As String) As Boolean
+    Dim z As String: z = UCase(Trim(zone))
+    IsSkippableZone = (z = "GREEN" Or z = "YELLOW")
+End Function
+
 ' Hide GREEN / YELLOW rows without removing them (visual filter only).
 Public Sub FilterOutGreenYellow(lo As ListObject)
     Dim fld As Long: fld = lo.ListColumns(H_ZONE).Index
