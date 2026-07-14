@@ -114,7 +114,8 @@ Public Sub RunStatusCheck()
 
     ' ---- Summary + user breakdown + persist ----
     WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n, cBlack, cRed, Now
-    WriteUserBreakdown wsTgt, SUMMARY_ANCHOR, userStats, passCount, nCount, lo.Range.Row
+    ' User breakdown lives on the cache sheet in cols G-I (baseline uses A:C, StageOrder E).
+    WriteUserBreakdown stateWs, "G1", userStats, passCount, nCount, 1001
     WriteSavedState stateWs, stateArr, n
     If orderChanged Then WriteStageOrder stateWs, order
 
