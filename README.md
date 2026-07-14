@@ -72,7 +72,7 @@ GREEN / YELLOW stopes are filtered out of the build and skipped during grading.
 
 Each macro ends with a `MsgBox` summary — click **OK** to finish.
 
-## Notes / gotchas
+## Notes
 
 - **Blank source cell → `""`, not `0`.** `SetLookup` wraps `INDEX` in an `IF` so a
   blank sub-process yields a key like `IFR::` instead of `IFR::0`.
