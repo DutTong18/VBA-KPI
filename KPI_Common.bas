@@ -231,7 +231,7 @@ Public Function GetStateSheet() As Worksheet
         ws.Name = STATE_SHEET
         ws.Range("A1:C1").Value = Array("StopeID", "DesignStage", "SubProcess")
         ws.Range("E1").Value = "StageOrder"
-        ws.Visible = xlSheetVeryHidden
+        ws.Visible = xlSheetHidden
     End If
     Set GetStateSheet = ws
 End Function
@@ -328,8 +328,8 @@ End Sub
 
 Public Sub WriteUserBreakdown(ws As Worksheet, anchor As String, stats As Object, totalY As Long, totalN As Long, tableTopRow As Long)
     Dim a As Range: Set a = ws.Range(anchor)
-    Dim r0 As Long, c0 As Long: r0 = a.Row + 4: c0 = a.Column
-    Dim lastFree As Long: lastFree = tableTopRow - 1   ' never touch the KPI table below
+    Dim r0 As Long, c0 As Long: r0 = a.Row: c0 = a.Column
+    Dim lastFree As Long: lastFree = tableTopRow - 1   ' upper bound for rows to clear/write
 
     Dim clearRows As Long: clearRows = lastFree - r0 + 1
     If clearRows > 0 Then
