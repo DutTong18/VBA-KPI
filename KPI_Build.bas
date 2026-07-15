@@ -1,4 +1,3 @@
-Attribute VB_Name = "KPI_Build"
 Option Explicit
 ' Config constants and all helper functions live in KPI_Common.
 
