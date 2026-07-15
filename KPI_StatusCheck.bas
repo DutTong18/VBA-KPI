@@ -1,7 +1,6 @@
 Option Explicit
 ' Config constants and all helper functions live in KPI_Common.
-
-' ================== MACRO: DAILY STATUS CHECK ==================
+' ================== MACRO: Fortnightly Status Check ==================
 Public Sub RunStatusCheck()
     Dim prevSU As Boolean, prevEv As Boolean
     prevSU = Application.ScreenUpdating: prevEv = Application.EnableEvents
@@ -67,7 +66,7 @@ Public Sub RunStatusCheck()
         stg = CleanStr(kpi(i, 3)): sub_ = CleanStr(kpi(i, 4))
         zone = UCase(CleanStr(kpi(i, 5)))
 
-        If IsSkippableZone(zone) Then
+        If IsSkippableZone(zone) or stg = "IFR" Then
             results(i) = ""          ' skipped: no grade, no state, no tally
             skipCount = skipCount + 1
         Else
@@ -111,6 +110,7 @@ Public Sub RunStatusCheck()
             End With
         End If
     Next i
+    
 
     ' ---- Summary + user breakdown + persist ----
     WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n, cBlack, cRed, Now
