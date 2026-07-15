@@ -1,4 +1,3 @@
-Attribute VB_Name = "KPI_Common"
 Option Explicit
 
 ' ================== SHARED CONFIG ==================
@@ -89,6 +88,7 @@ Public Sub FilterOutGreenYellow(lo As ListObject)
                         Operator:=xlAnd, Criteria2:="<>YELLOW"
 End Sub
 
+
 Public Function GetOrCreateTable(wsTgt As Worksheet, ids As Collection) As ListObject
     Dim lo As ListObject
     On Error Resume Next
@@ -144,7 +144,8 @@ Public Function ColLetter(ByVal n As Long) As String
     ColLetter = s
 End Function
 
-' ================== STATUS-CHECK FUNCTIONS ==================
+' ================== STATUS CHECK FUNCTIONS ==================
+'Grading a row based on the current and previous stage positions, and the zone status. Returns "Y", "N", "new" or "?".
 Public Function GradeRow(savedState As Object, stageIdx As Object, _
                          id As String, stg As String, sub_ As String, zone As String) As String
     If Not savedState.Exists(id) Then GradeRow = "new": Exit Function
@@ -209,12 +210,14 @@ Public Function ReadCommentsMap(wsSrc As Worksheet) As Object
     Set ReadCommentsMap = d
 End Function
 
+'Formatting the status cell based on the value of the status (Y/N/new/?)
 Public Sub FormatStatusCell(cell As Range, v As String)
     Select Case v
         Case "Y":   cell.Interior.Color = RGB(198, 239, 206): cell.Font.Color = RGB(39, 98, 33)
         Case "N":   cell.Interior.Color = RGB(255, 199, 206): cell.Font.Color = RGB(156, 0, 6)
         Case "new": cell.Interior.Color = RGB(221, 235, 247): cell.Font.Color = RGB(31, 78, 121): cell.Font.Italic = True
-        Case Else:  cell.Interior.Color = RGB(255, 235, 156): cell.Font.Color = RGB(156, 87, 0)
+        Case "?": cell.Interior.Color = RGB(255, 235, 156): cell.Font.Color = RGB(156, 87, 0)
+        Case Else:  cell.Interior.Color = RGB(255, 255, 255): cell.Font.Color = RGB(5, 5, 5)
     End Select
     cell.HorizontalAlignment = xlCenter
 End Sub
@@ -253,7 +256,7 @@ Public Sub WriteSavedState(ws As Worksheet, arr As Variant, n As Long)
     ws.Range("A2:C" & ws.Rows.Count).ClearContents
     If n > 0 Then
         With ws.Range("A2").Resize(n, 3)
-            .NumberFormat = "@"   ' keep sub labels like "25%"/"0%" as text (no % coercion)
+            .NumberFormat = "@"   ' keep sub labels like "25%"/"0%" as text (not decmal value)
             .Value = arr
         End With
     End If
