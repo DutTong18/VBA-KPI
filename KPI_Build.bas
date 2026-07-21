@@ -46,10 +46,10 @@ Public Sub BuildKPITable()
 
     ApplyLookupFormulas lo
     Application.Calculate
-    FilterOutGreenYellow lo   ' hide GREEN/YELLOW; BLACK/RED (and blanks) stay visible
+    FilterOutSkipped lo   ' hide GREEN/YELLOW and IFR-stage rows; other BLACK/RED stay visible
     MsgBox "KPI table ready. " & added & " new stope(s) added. Total rows: " & _
            IIf(lo.DataBodyRange Is Nothing, 0, lo.ListRows.Count) & _
-           " (GREEN/YELLOW hidden by filter).", vbInformation
+           " (GREEN/YELLOW and IFR hidden by filter).", vbInformation
 
 CleanExit:
     Application.ScreenUpdating = prevSU: Application.EnableEvents = prevEv
