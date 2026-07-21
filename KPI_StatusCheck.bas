@@ -66,7 +66,7 @@ Public Sub RunStatusCheck()
         stg = CleanStr(kpi(i, 3)): sub_ = CleanStr(kpi(i, 4))
         zone = UCase(CleanStr(kpi(i, 5)))
 
-        If IsSkippableZone(zone) or stg = "IFR" Then
+        If IsSkippableZone(zone) Or UCase(stg) = "IFR" Then
             results(i) = ""          ' skipped: no grade, no state, no tally
             skipCount = skipCount + 1
         Else
@@ -115,7 +115,18 @@ Public Sub RunStatusCheck()
     ' ---- Summary + user breakdown + persist ----
     WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n, cBlack, cRed, Now
     ' User breakdown lives on the cache sheet in cols G-I (baseline uses A:C, StageOrder E).
-    WriteUserBreakdown stateWs, "G1", userStats, passCount, nCount, 1001
+    ' Counts are cumulative: read the running totals, add this run, then rewrite.
+    Dim cumStats As Object: Set cumStats = ReadUserBreakdown(stateWs, "G1")
+    Dim uk As Variant, rv As Variant
+    For Each uk In userStats.Keys
+        rv = userStats(uk)
+        BumpUserBy cumStats, CStr(uk), CLng(rv(0)), CLng(rv(1))
+    Next uk
+    Dim cumY As Long, cumN As Long, cv As Variant
+    For Each uk In cumStats.Keys
+        cv = cumStats(uk): cumY = cumY + cv(0): cumN = cumN + cv(1)
+    Next uk
+    WriteUserBreakdown stateWs, "G1", cumStats, cumY, cumN, 1001
     WriteSavedState stateWs, stateArr, n
     If orderChanged Then WriteStageOrder stateWs, order
 
