@@ -78,14 +78,18 @@ Public Function IsSkippableZone(zone As String) As Boolean
     IsSkippableZone = (z = "GREEN" Or z = "YELLOW")
 End Function
 
-' Hide GREEN / YELLOW rows without removing them (visual filter only).
-Public Sub FilterOutGreenYellow(lo As ListObject)
-    Dim fld As Long: fld = lo.ListColumns(H_ZONE).Index
+' Hide skipped rows without removing them (visual filter only): GREEN / YELLOW
+' zones, plus any stope parked at the final IFR stage (regardless of RED/BLACK).
+Public Sub FilterOutSkipped(lo As ListObject)
+    Dim zoneFld As Long: zoneFld = lo.ListColumns(H_ZONE).Index
+    Dim stageFld As Long: stageFld = lo.ListColumns(H_STAGE).Index
     On Error Resume Next
     If Not lo.AutoFilter Is Nothing Then lo.AutoFilter.ShowAllData
     On Error GoTo 0
-    lo.Range.AutoFilter Field:=fld, Criteria1:="<>GREEN", _
+    ' Each field is ANDed together, so a row is visible only when it passes both.
+    lo.Range.AutoFilter Field:=zoneFld, Criteria1:="<>GREEN", _
                         Operator:=xlAnd, Criteria2:="<>YELLOW"
+    lo.Range.AutoFilter Field:=stageFld, Criteria1:="<>IFR"
 End Sub
 
 
@@ -329,6 +333,34 @@ Public Sub BumpUser(d As Object, user As String, idx As Long)
     d(user) = a
 End Sub
 
+' Add y progressions and n non-progressions to a user's running totals.
+Public Sub BumpUserBy(d As Object, user As String, y As Long, n As Long)
+    Dim a As Variant
+    If d.Exists(user) Then a = d(user) Else a = Array(0, 0)
+    a(0) = a(0) + y: a(1) = a(1) + n
+    d(user) = a
+End Sub
+
+' Read the cumulative per-user totals already written to the breakdown block,
+' so a fresh run can add to them instead of overwriting. Returns user -> (Y, N).
+Public Function ReadUserBreakdown(ws As Worksheet, anchor As String) As Object
+    Dim d As Object: Set d = CreateObject("Scripting.Dictionary")
+    Dim a As Range: Set a = ws.Range(anchor)
+    Dim r0 As Long, c0 As Long: r0 = a.Row: c0 = a.Column
+    Dim r As Long: r = r0 + 3            ' first data row (after title/header/TOTAL)
+    Dim usr As String
+    Do
+        usr = CleanStr(ws.Cells(r, c0).Value)
+        If Len(usr) = 0 Then Exit Do
+        If usr <> "(none)" And Left$(usr, 4) <> "... (" Then
+            BumpUserBy d, usr, CLng(Val(ws.Cells(r, c0 + 1).Value)), _
+                              CLng(Val(ws.Cells(r, c0 + 2).Value))
+        End If
+        r = r + 1
+    Loop
+    Set ReadUserBreakdown = d
+End Function
+
 Public Sub WriteUserBreakdown(ws As Worksheet, anchor As String, stats As Object, totalY As Long, totalN As Long, tableTopRow As Long)
     Dim a As Range: Set a = ws.Range(anchor)
     Dim r0 As Long, c0 As Long: r0 = a.Row: c0 = a.Column
@@ -342,7 +374,7 @@ Public Sub WriteUserBreakdown(ws As Worksheet, anchor As String, stats As Object
     End If
 
     With ws.Cells(r0, c0)
-        .Value = "Progress by User (this run: " & totalY & " Y / " & totalN & " N)"
+        .Value = "Progress by User (cumulative: " & totalY & " Y / " & totalN & " N)"
         .Font.Bold = True: .Interior.Color = RGB(217, 225, 242)
     End With
 
