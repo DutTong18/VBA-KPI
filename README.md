@@ -1,4 +1,3 @@
-# VBA-KPI
 # Stope Design KPI Tracker (VBA)
 
 VBA port of an Office Script that tracks mining **stopes** as they move through a
@@ -13,16 +12,19 @@ comparing its current design stage against the previous run's saved baseline.
 | `KPI_Common.bas` | Config constants + all shared helpers | Lookup formulas, grading logic, cache read/write, summary/breakdown output |
 | `KPI_Build.bas` | `BuildKPITable` macro | Creates/refreshes the KPI table from the source sheet |
 | `KPI_StatusCheck.bas` | `RunStatusCheck` macro | Grades each stope vs. the saved baseline and writes results |
+| `KPI_ClearSheet.bas` | `ClearSheets` macro | Resets state on a forecast change: wipes/recreates the target sheet and deletes the cache sheet |
 
 ## Sheets
 
 - **`Stope Cadence`** (source) — raw stope data. Headers in row 5, data below.
-- **`SchedulerData`** (target) — holds the `KPI` table plus the run summary
-  (`Total Stopes` / `BLACK` / `RED` counts + last-updated time) at `A1`.
+- **`SchedulerData`** (target) — the run summary (`Total Stopes` / `BLACK` / `RED`
+  counts + last-updated time) sits at `A1`; the `KPI` table is built lower down at
+  `TABLE_ANCHOR` (`A25`) so the two never collide.
 - **`_StageStateCache`** (hidden) — persistence between runs:
   - `A:C` — per-stope baseline: StopeID / DesignStage / SubProcess
   - `E` — the ordered list of stage keys (`StageOrder`)
   - `G:I` — the per-engineer Progression / Non-Progression breakdown
+    (**cumulative** across every run since the last `ClearSheets`)
 
 The cache sheet is `xlSheetHidden` (hidden, but users can unhide via right-click),
 not very-hidden.
@@ -33,6 +35,7 @@ not very-hidden.
 |----------|-------|---------|
 | `SRC_SHEET` | `Stope Cadence` | Source data sheet |
 | `TGT_SHEET` | `SchedulerData` | KPI table + summary destination |
+| `TABLE_ANCHOR` | `A25` | Top-left cell where the KPI table is created |
 | `STATE_SHEET` | `_StageStateCache` | Hidden persistence sheet |
 | `TBL_NAME` | `KPI` | Output ListObject name |
 | `COL_ID` | 3 | Stope ID column in source |
@@ -59,20 +62,25 @@ On a run, for each stope:
 - **`N`** (non-progression) — seen before but did not advance enough.
 
 GREEN / YELLOW stopes are filtered out of the build and skipped during grading.
+Stopes at the final **`IFR`** stage are treated the same way — hidden by the build
+filter and skipped during grading (no grade, no state, no tally) — even when their
+zone is RED or BLACK.
 
 ## Usage
 
 1. Enable **Trust access to the VBA project object model** (needed only for
    re-importing modules programmatically).
-2. Import the three `.bas` files into the workbook's VBA project.
+2. Import the four `.bas` files into the workbook's VBA project.
 3. Run **`BuildKPITable`** once to create the `KPI` table on `SchedulerData`.
 4. Run **`RunStatusCheck`** to grade. The first run baselines every stope as
    `new`; each later run grades against the previous baseline and refreshes the
    summary and per-engineer breakdown.
+5. When the forecast changes and you need a clean slate, run **`ClearSheets`** to
+   wipe the target sheet and drop the cache, then re-run `BuildKPITable`.
 
 Each macro ends with a `MsgBox` summary — click **OK** to finish.
 
-## Notes
+## Notes / gotchas
 
 - **Blank source cell → `""`, not `0`.** `SetLookup` wraps `INDEX` in an `IF` so a
   blank sub-process yields a key like `IFR::` instead of `IFR::0`.
