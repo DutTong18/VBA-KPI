@@ -118,12 +118,12 @@ Public Sub RunStatusCheck()
     ' Counts are cumulative: read the running totals, add this run, then rewrite.
     Dim cumStats As Object: Set cumStats = ReadUserBreakdown(stateWs, "G1")
     Dim uk As Variant, rv As Variant
-    For Each uk In userStats.Keys
+    For Each uk In userStats.keys
         rv = userStats(uk)
         BumpUserBy cumStats, CStr(uk), CLng(rv(0)), CLng(rv(1))
     Next uk
     Dim cumY As Long, cumN As Long, cv As Variant
-    For Each uk In cumStats.Keys
+    For Each uk In cumStats.keys
         cv = cumStats(uk): cumY = cumY + cv(0): cumN = cumN + cv(1)
     Next uk
     WriteUserBreakdown stateWs, "G1", cumStats, cumY, cumN, 1001
@@ -142,3 +142,4 @@ CleanFail:
     MsgBox "RunStatusCheck error: " & Err.Description, vbCritical
     Resume CleanExit
 End Sub
+

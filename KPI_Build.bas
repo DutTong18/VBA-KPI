@@ -58,3 +58,4 @@ CleanFail:
     MsgBox "BuildKPITable error: " & Err.Description, vbCritical
     Resume CleanExit
 End Sub
+

@@ -214,14 +214,14 @@ Public Function ReadCommentsMap(wsSrc As Worksheet) As Object
     Set ReadCommentsMap = d
 End Function
 
-'Formatting the status cell based on the value of the status (Y/N/new/?)
+'Formatting the status cell based on the value of the status (Y/N/new/?) changing text to the corresponding value and changing the background and font color to match the status. as a precaution, the cell is also centered horizontally.
 Public Sub FormatStatusCell(cell As Range, v As String)
     Select Case v
-        Case "Y":   cell.Interior.Color = RGB(198, 239, 206): cell.Font.Color = RGB(39, 98, 33)
-        Case "N":   cell.Interior.Color = RGB(255, 199, 206): cell.Font.Color = RGB(156, 0, 6)
-        Case "new": cell.Interior.Color = RGB(221, 235, 247): cell.Font.Color = RGB(31, 78, 121): cell.Font.Italic = True
-        Case "?": cell.Interior.Color = RGB(255, 235, 156): cell.Font.Color = RGB(156, 87, 0)
-        Case Else:  cell.Interior.Color = RGB(255, 255, 255): cell.Font.Color = RGB(5, 5, 5)
+        Case "Y":   cell.Interior.Color = RGB(198, 239, 206): cell.Font.Color = RGB(39, 98, 33): cell.Value = "Y"
+        Case "N":   cell.Interior.Color = RGB(255, 199, 206): cell.Font.Color = RGB(156, 0, 6): cell.Value = "N"
+        Case "new": cell.Interior.Color = RGB(221, 235, 247): cell.Font.Color = RGB(31, 78, 121): cell.Font.Italic = True: cell.Value = "new"
+        Case "?": cell.Interior.Color = RGB(255, 235, 156): cell.Font.Color = RGB(156, 87, 0): cell.Value = "?"
+        Case Else:  cell.Interior.Color = RGB(255, 255, 255): cell.Font.Color = RGB(5, 5, 5): cell.Value = ""
     End Select
     cell.HorizontalAlignment = xlCenter
 End Sub
@@ -300,6 +300,32 @@ Public Function SeedOrder() As Collection
     Set SeedOrder = c
 End Function
 
+' ================== OPEN QRG FUNCTIONS ==================
+'CHECK IF THE QRG FROM LINK IS AVAILABLE AND CAN OPEN THEN OPEN IT IN A NEW WINDOW, OTHERWISE SHOW AN ERROR MESSAGE
+Public Function URLcheck(URL As String) As Boolean
+    Dim Request As Object
+    Dim ff As Integer
+    Dim rc As Variant
+
+    On Error GoTo EndNow
+    Set Request = CreateObject("MSXML2.serverXMLHTTP.6.0")
+
+    With Request
+        .Open "GET", URL, False
+        .Send
+        rc = .StatusText
+    End With
+    Set Request = Nothing
+
+If rc = "OK" Then
+    URLcheck = True
+    Else
+        URLcheck = False
+End If
+Exit Function
+EndNow:
+End Function
+    
 ' ---- Summary blocks ----
 Public Sub WriteSummaryBlock(ws As Worksheet, anchor As String, total As Long, black As Long, red As Long, runDate As Date)
     Dim a As Range: Set a = ws.Range(anchor)
@@ -328,7 +354,7 @@ End Sub
 
 Public Sub BumpUser(d As Object, user As String, idx As Long)
     Dim a As Variant
-    If d.Exists(user) Then a = d(user) Else a = Array(0, 0)   ' (0)=Progressions, (1)=Non-Progressions
+    If d.Exists(user) Then a = d(user) Else a = Array(0, 0)   ' (0)=Progressions, (1)=Non Progressions
     a(idx) = a(idx) + 1
     d(user) = a
 End Sub
@@ -423,8 +449,8 @@ Public Function SortUsersByN(d As Object) As String()
     Dim keys() As String, n As Long, i As Long, j As Long, idx As Long, kk As Variant
     n = d.Count: ReDim keys(0 To n - 1)
     idx = 0
-    For Each kk In d.Keys: keys(idx) = CStr(kk): idx = idx + 1: Next kk
-    ' Sort by Non-Progressions desc, then Progressions desc
+    For Each kk In d.keys: keys(idx) = CStr(kk): idx = idx + 1: Next kk
+    ' Sort by Non Progressions desc, then Progressions desc
     For i = 0 To n - 2
         For j = 0 To n - 2 - i
             If UserRank(d, keys(j + 1)) > UserRank(d, keys(j)) Then
@@ -439,3 +465,6 @@ Public Function UserRank(d As Object, user As String) As Double
     Dim v As Variant: v = d(user)
     UserRank = v(1) * 1000000# + v(0)   ' Non-Progressions dominant, Progressions as tiebreak
 End Function
+
+
+
