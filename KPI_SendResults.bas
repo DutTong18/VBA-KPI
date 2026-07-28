@@ -1,55 +1,64 @@
-Sub emailResults()
-'function that copies the two worksheets to a temporary file and emails them as an attachment
-    Dim xOutlookObj As Object
-    Dim xEmailObj As Object
-    Dim tempFileName As String
-    Dim body As String
-    Dim wb As Workbook
-    Dim ws1 As Worksheet
-    Dim ws2 As Worksheet
-    Dim tempFile As Workbook
+Option Explicit
+' Config constants and all helper functions live in KPI_Common.
 
-    Set wb = ActiveWorkbook 'name of the workbook that contains the worksheets to be emailed
-    Set ws1 = wb.Worksheets("_StageStateCache") 'first worksheet to email
-    Set ws2 = wb.Worksheets("SchedulerData") 'second worksheet to email
-    Worksheets("_StageStateCache").Visible = True
-    Worksheets("SchedulerData").Visible = True
+' Recipient for the results email - edit as needed (semicolon-separate multiples).
+Public Const RESULTS_TO As String = "xyz@company.com"
 
+' MACRO: Email KPI results
+' Copies the cache sheet (cumulative engineer breakdown + baseline) and the
+' target sheet (KPI table + summary) into a temporary .xlsx, emails it via
+' Outlook as an attachment, then deletes the temp file.
+Public Sub emailResults()
+    Dim prevSU As Boolean, prevEv As Boolean, prevDA As Boolean
+    prevSU = Application.ScreenUpdating: prevEv = Application.EnableEvents
+    prevDA = Application.DisplayAlerts
+    On Error GoTo CleanFail
+    Application.ScreenUpdating = False: Application.EnableEvents = False
     Application.DisplayAlerts = False
-    Application.ScreenUpdating = False
-    Application.EnableEvents = False
 
-    
-   
-    'tempFileName = "KPI_Results_" & Format(Now, "dd-mm-yyyy_hh-mm-ss") & ".xlsx"
-    'creates a temporary file to save the worksheets to be emailed
-    wb.Worksheets(Array("_StageStateCache", "SchedulerData")).Copy
-    ActiveWorkbook.SaveAs tempFile, FileFormat:=xlOpenXMLWorkbook
-    ActiveWorkbook.Close False
+    Dim wsState As Worksheet, wsTgt As Worksheet
+    Set wsState = SheetOrNothing(STATE_SHEET)
+    Set wsTgt = SheetOrNothing(TGT_SHEET)
+    If wsState Is Nothing Then MsgBox "Sheet '" & STATE_SHEET & "' not found. Run RunStatusCheck first.", vbExclamation: GoTo CleanExit
+    If wsTgt Is Nothing Then MsgBox "Sheet '" & TGT_SHEET & "' not found. Run BuildKPITable first.", vbExclamation: GoTo CleanExit
 
-    Set tempFile = Workbooks.Add 'create a new temporary workbook
-    tempFile = Environ$("temp") & "\" & "KPI_Results_" & Format(Now, "dd-mm-yyyy_hh-mm-ss") & ".xlsx"
-    tempFile.Worksheets(Array("_StageStateCache", "SchedulerData")).PasteSpecial Paste:=xlPasteAll
+    ' A sheet must be visible to be copied to a new workbook; remember the
+    ' cache sheet's state and restore it afterwards.
+    Dim prevStateVis As Long: prevStateVis = wsState.Visible
+    wsState.Visible = xlSheetVisible
 
-    
-    Set xOutlookObj = CreateObject("Outlook.Application")
-    Set xEmailObj = xOutlookObj.CreateItem(0)
-    On Error Resume Next
-    With xEmailObj
-        .To = "dut.tong@bhp.com"
-        .Subject = "KPI Results"
+    ' Copy both sheets into a fresh workbook and save it in the temp folder.
+    Dim tempPath As String
+    tempPath = Environ$("TEMP") & "\KPI_Results_" & Format(Now, "dd-mm-yyyy_hh-mm-ss") & ".xlsx"
+    ThisWorkbook.Worksheets(Array(STATE_SHEET, TGT_SHEET)).Copy
+    Dim tempWb As Workbook: Set tempWb = ActiveWorkbook
+    tempWb.SaveAs Filename:=tempPath, FileFormat:=xlOpenXMLWorkbook   ' .xlsx, no macros
+    tempWb.Close SaveChanges:=False
+
+    wsState.Visible = prevStateVis
+
+    ' Build and send the email.
+    Dim outlookApp As Object, mail As Object
+    Set outlookApp = CreateObject("Outlook.Application")
+    Set mail = outlookApp.CreateItem(0)   ' olMailItem
+    With mail
+        .To = RESULTS_TO
+        .Subject = "KPI Results - " & Format(Date, "dd-mm-yyyy")
         .body = "Please find the attached KPI results."
-        .Attachments.Add tempFile
+        .Attachments.Add tempPath
         .Send
     End With
-    tempFile.ChangeFileAccess Mode:=xlReadOnly
-    Kill tempFile
-    tempFile.Close savechanges:=False
-    
-    Application.DisplayAlerts = True
-    Set xEmailObj = Nothing
-    Set xOutlookObj = Nothing
-    Application.ScreenUpdating = True
-    Application.EnableEvents = True
-    
+
+    ' Attachment is embedded in the mail item, safe to delete the temp file.
+    Kill tempPath
+
+    MsgBox "KPI results sent to " & RESULTS_TO & ".", vbInformation
+
+CleanExit:
+    Application.ScreenUpdating = prevSU: Application.EnableEvents = prevEv
+    Application.DisplayAlerts = prevDA
+    Exit Sub
+CleanFail:
+    MsgBox "emailResults error: " & Err.Description, vbCritical
+    Resume CleanExit
 End Sub
