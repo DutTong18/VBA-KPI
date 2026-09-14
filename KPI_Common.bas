@@ -116,9 +116,11 @@ End Function
 Public Sub ApplyLookupFormulas(lo As ListObject)
     If lo.DataBodyRange Is Nothing Then Exit Sub
     ' Show all rows first: assigning .Formula to a filtered table skips hidden rows,
-    ' so a rebuild would leave stale formulas on GREEN/YELLOW rows still hidden.
+    ' so a rebuild would leave stale formulas on rows still hidden. Ghost rows are
+    ' hidden manually (EntireRow), which ShowAllData does not undo - clear both.
     On Error Resume Next
     If Not lo.AutoFilter Is Nothing Then lo.AutoFilter.ShowAllData
+    lo.DataBodyRange.EntireRow.Hidden = False
     On Error GoTo 0
     SetLookup lo, H_USER, COL_USER
     SetLookup lo, H_STAGE, COL_STAGE
@@ -465,6 +467,5 @@ Public Function UserRank(d As Object, user As String) As Double
     Dim v As Variant: v = d(user)
     UserRank = v(1) * 1000000# + v(0)   ' Non-Progressions dominant, Progressions as tiebreak
 End Function
-
 
 
