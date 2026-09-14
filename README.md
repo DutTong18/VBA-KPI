@@ -13,6 +13,8 @@ comparing its current design stage against the previous run's saved baseline.
 | `KPI_Build.bas` | `BuildKPITable` macro | Creates/refreshes the KPI table from the source sheet |
 | `KPI_StatusCheck.bas` | `RunStatusCheck` macro | Grades each stope vs. the saved baseline and writes results |
 | `KPI_ClearSheet.bas` | `ClearSheets` macro | Resets state on a forecast change: wipes/recreates the target sheet and deletes the cache sheet |
+| `KPI_SendResults.bas` | `emailResults` macro | Copies the cache + target sheets into a temp `.xlsx` and emails it via Outlook (recipient set by `RESULTS_TO` at the top of the module) |
+| `KPI_QRG.bas` | `openKpiQrg` macro | Opens the KPI Quick Reference Guide (SharePoint doc) in the browser, after `URLcheck` in `KPI_Common` confirms the link responds |
 
 ## Sheets
 
@@ -65,6 +67,13 @@ GREEN / YELLOW stopes are filtered out of the build and skipped during grading.
 Stopes at the final **`IFR`** stage are treated the same way — hidden by the build
 filter and skipped during grading (no grade, no state, no tally) — even when their
 zone is RED or BLACK.
+
+The status check re-applies the hide filter on every run, so a stope whose zone
+dropped back to GREEN/YELLOW since the build (or that reached IFR) gets hidden
+then too. It also checks each KPI row's ID against the source sheet: a **ghost
+row** whose stope no longer exists in the source is hidden and skipped the same
+way. Skipped stopes are excluded from every count — the `Total Stopes` summary
+figure is the number of *graded* stopes only.
 
 ## Usage
 
