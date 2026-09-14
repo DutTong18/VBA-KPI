@@ -40,10 +40,26 @@ Public Sub RunStatusCheck()
     Dim kpi As Variant: kpi = lo.DataBodyRange.Value
     Dim n As Long: n = UBound(kpi, 1)
 
-    ' Register any new stage keys (skip GREEN/YELLOW)
+    ' ---- IDs currently in the source sheet ----
+    ' A KPI row whose stope no longer exists in the source (removed/re-forecast)
+    ' is hidden and skipped, the same as GREEN/YELLOW.
+    Dim srcWs As Worksheet: Set srcWs = SheetOrNothing(SRC_SHEET)
+    If srcWs Is Nothing Then MsgBox "Source sheet '" & SRC_SHEET & "' not found.", vbExclamation: GoTo CleanExit
+    Dim srcIds As Object: Set srcIds = CreateObject("Scripting.Dictionary")
+    Dim lastSrc As Long: lastSrc = srcWs.Cells(srcWs.Rows.Count, COL_ID).End(xlUp).Row
+    If lastSrc >= 2 Then
+        Dim idv As Variant: idv = ReadColumn(srcWs, COL_ID, 2, lastSrc)
+        Dim r As Long, sid As String
+        For r = 1 To UBound(idv, 1)
+            sid = CleanStr(idv(r, 1))
+            If Len(sid) > 0 Then srcIds(sid) = True
+        Next r
+    End If
+
+    ' Register any new stage keys (skip GREEN/YELLOW and ghost rows)
     Dim orderChanged As Boolean, key As String
     For i = 1 To n
-        If Not IsSkippableZone(CStr(kpi(i, 5))) Then
+        If Not IsSkippableZone(CStr(kpi(i, 5))) And srcIds.Exists(CleanStr(kpi(i, 1))) Then
             key = StageKey(kpi(i, 3), kpi(i, 4))
             If Not stageIdx.Exists(key) Then
                 stageIdx(key) = order.Count
@@ -66,7 +82,7 @@ Public Sub RunStatusCheck()
         stg = CleanStr(kpi(i, 3)): sub_ = CleanStr(kpi(i, 4))
         zone = UCase(CleanStr(kpi(i, 5)))
 
-        If IsSkippableZone(zone) Or UCase(stg) = "IFR" Then
+        If IsSkippableZone(zone) Or UCase(stg) = "IFR" Or Not srcIds.Exists(id) Then
             results(i) = ""          ' skipped: no grade, no state, no tally
             skipCount = skipCount + 1
         Else
@@ -112,8 +128,19 @@ Public Sub RunStatusCheck()
     Next i
     
 
+    ' ---- Re-hide skipped rows ----
+    ' Zones can change between runs (e.g. RED dropping back to GREEN), so the
+    ' build-time filter is re-applied; ghost rows (id gone from source) are
+    ' hidden manually since the filter can't express "not in the source list".
+    FilterOutSkipped lo
+    For i = 1 To n
+        If Not srcIds.Exists(CleanStr(kpi(i, 1))) Then
+            lo.DataBodyRange.Rows(i).EntireRow.Hidden = True
+        End If
+    Next i
+
     ' ---- Summary + user breakdown + persist ----
-    WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n, cBlack, cRed, Now
+    WriteSummaryBlock wsTgt, SUMMARY_ANCHOR, n - skipCount, cBlack, cRed, Now
     ' User breakdown lives on the cache sheet in cols G-I (baseline uses A:C, StageOrder E).
     ' Counts are cumulative: read the running totals, add this run, then rewrite.
     Dim cumStats As Object: Set cumStats = ReadUserBreakdown(stateWs, "G1")
@@ -132,7 +159,7 @@ Public Sub RunStatusCheck()
 
     MsgBox "Done - '" & baseHeader & "' added." & vbCrLf & _
            passCount & " passed, " & nCount & " non-progressions across " & _
-           (n - skipCount) & " graded stopes (" & skipCount & " GREEN/YELLOW skipped)." & vbCrLf & _
+           (n - skipCount) & " graded stopes (" & skipCount & " skipped: GREEN/YELLOW, IFR or removed from source)." & vbCrLf & _
            "BLACK=" & cBlack & "  RED=" & cRed, vbInformation
 
 CleanExit:
@@ -142,4 +169,3 @@ CleanFail:
     MsgBox "RunStatusCheck error: " & Err.Description, vbCritical
     Resume CleanExit
 End Sub
-
