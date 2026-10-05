@@ -79,12 +79,11 @@ figure is the number of *graded* stopes only.
 
 1. Enable **Trust access to the VBA project object model** (needed only for
    re-importing modules programmatically).
-2. Import the four `.bas` files into the workbook's VBA project.
-3. Run **`BuildKPITable`** once to create the `KPI` table on `SchedulerData`.
-4. Run **`RunStatusCheck`** to grade. The first run baselines every stope as
+2. Run **`BuildKPITable`** once to create the `KPI` table on `SchedulerData`.
+3. Run **`RunStatusCheck`** to grade. The first run baselines every stope as
    `new`; each later run grades against the previous baseline and refreshes the
    summary and per-engineer breakdown.
-5. When the forecast changes and you need a clean slate, run **`ClearSheets`** to
+4. When the forecast changes and you need a clean slate, run **`ClearSheets`** to
    wipe the target sheet and drop the cache, then re-run `BuildKPITable`.
 
 Each macro ends with a `MsgBox` summary — click **OK** to finish.
