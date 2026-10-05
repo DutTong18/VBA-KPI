@@ -109,7 +109,7 @@ Each macro ends with a `MsgBox` summary — click **OK** to finish.
 
 ## Overview
 
-This is an Excel/VBA mining workflow tracker. An engineer runs BuildKPITable to derive a filtered KPI table from Stope Cadence, then RunStatusCheck compares current stages with the hidden baseline cache, grades progression, and updates SchedulerData summaries. ClearSheets resets the forecast state, while emailResults distributes workbook results through Outlook and openKpiQrg opens the documented guide after URL validation. Relationships below are based on the README; no VBA source excerpts were available, so internal helper wiring is limited to documented responsibilities.
+This is an Excel/VBA mining workflow tracker. An engineer runs BuildKPITable to derive a filtered KPI table from Stope Cadence, then RunStatusCheck compares current stages with the hidden baseline cache, grades progression, and updates SchedulerData summaries. ClearSheets resets the forecast state, while emailResults distributes workbook results through Outlook and openKpiQrg opens the documented guide after URL validation. Relationships below are based on the README;
 
 ## Diagram (Mermaid)
 
