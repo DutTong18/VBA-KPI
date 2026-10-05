@@ -6,7 +6,7 @@ Option Explicit
 ' Recipient for the results email.
 Public Const RESULTS_TO As String = "xyz@company.com
 Public Const RESULTS_CC As String = "xyz@company.com
-Public Const RESULTS_CC1 As String = "xyz@company.com
+Public Const RESULTS_BCC As String = "xyz@company.com
 
 ' Copies the cache sheet (cumulative engineer breakdown + baseline) and the
 ' target sheet (KPI table + summary) into a temporary .xlsx, emails it via
@@ -47,7 +47,7 @@ Public Sub emailResults()
     With mail
         .To = RESULTS_TO
         .cc = RESULTS_CC
-        .bcc = RESULTS_CC1
+        .bcc = RESULTS_BCC
         .Subject = "KPI Results - " & Format(Date, "dd/mm/yyyy")
         .body = "Please find the attached KPI results for the prior forecast"
         .Attachments.Add tempPath
@@ -73,7 +73,7 @@ CleanFail:
     With errorMail
         .To = RESULTS_TO
         .cc = RESULTS_CC
-        .bcc = RESULTS_CC1
+        .bcc = RESULTS_BCC
         .Subject = "KPI Results - Error Occurred"
         .body = "An error occurred while sending KPI results: " & Err.Description
         .Send
@@ -90,7 +90,7 @@ CleanStateFail:
     With error1Mail
         .To = RESULTS_TO
         .cc = RESULTS_CC
-        .bcc = RESULTS_CC1
+        .bcc = RESULTS_BCC
         .Subject = "KPI Results - Error Occurred"
         .body = "An error occurred while sending KPI results: " & Err.Description & "State Sheet Could Not Be Found"
         .Send
@@ -107,7 +107,7 @@ CleanTGTFail:
     With error2Mail
         .To = RESULTS_TO
         .cc = RESULTS_CC
-        .bcc = RESULTS_CC1
+        .bcc = RESULTS_BCC
         .Subject = "KPI Results - Error Occurred"
         .body = "An error occurred while sending KPI results: " & Err.Description & "Target Sheet Could Not Be Found"
         .Send
