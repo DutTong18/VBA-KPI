@@ -4,9 +4,9 @@ Option Explicit
 
 ' ================== MACRO: First Send KPI Results via Email then clear sheets ==================
 ' Recipient for the results email.
-Public Const RESULTS_TO As String = "xxx.xxx@xxx.com"
-Public Const RESULTS_CC As String = "xxx.xxx@xxx.com"
-Public Const RESULTS_CC1 As String = "xxx.xxx@xxx.com"
+Public Const RESULTS_TO As String = "xyz@company.com
+Public Const RESULTS_CC As String = "xyz@company.com
+Public Const RESULTS_CC1 As String = "xyz@company.com
 
 ' Copies the cache sheet (cumulative engineer breakdown + baseline) and the
 ' target sheet (KPI table + summary) into a temporary .xlsx, emails it via
